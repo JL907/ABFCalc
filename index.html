@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abiotic Factor Power Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a research-facility maintenance terminal: dry, exact, a little wry.
+   IDEA: the facility's after-hours wiring board — outlets go dark at 9 PM and your batteries hold the line until 6 AM.
+   PICTURE: the node graph itself, cards on a pegboard wired with cables, plus each battery's charge draining across the night.
+   COLOUR and TYPE: graphite ground, pale ink, hazard red-orange accent, mint for "powered"; Chakra Petch for figures, Inter for text.
+   LAYOUT: parts bin left, graph centre, verdict + chart right; on phones parts row, graph, verdict. */
+:root{color-scheme:dark;--bg:#16191d;--panel:#20252b;--panel2:#2a3038;--line:#38404a;--ink:#e9edf1;--mute:#9aa5b1;--acc:#ff5d3a;--ok:#7ee0c3;--bad:#ff6b6b;--warn:#ffc46b}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,.big,.tag{font-family:"Chakra Petch",Inter,sans-serif}
+h1{font-size:clamp(32px,4.4vw,48px);line-height:1.05;margin:0 0 8px;font-weight:700;text-wrap:balance}
+h2{font-size:17px;margin:0 0 8px;font-weight:600}
+p{margin:0}
+.top{display:flex;flex-wrap:wrap;gap:20px 40px;align-items:flex-end;justify-content:space-between;padding:28px max(3vw,16px) 18px}
+.top p{color:var(--mute);max-width:62ch}
+.night{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+label{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+input,select{font:16px Inter,sans-serif;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-height:44px;width:100%}
+.night input{width:150px}
+input:focus-visible,select:focus-visible,button:focus-visible,.pi:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button{font:600 14px Inter,sans-serif;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:8px;min-height:40px;padding:0 14px;cursor:pointer}
+button:hover{border-color:var(--mute)}
+.wrap{display:grid;grid-template-columns:184px minmax(0,1fr) 370px;gap:14px;padding:0 max(3vw,16px) 40px}
+.palwrap{display:flex;flex-direction:column;gap:8px}
+.pal{display:flex;flex-direction:column;gap:6px;max-height:690px;overflow-y:auto;padding-right:4px}
+.pal h2{margin:10px 0 2px;font-size:13px;color:var(--mute);font-weight:600;font-family:Inter,sans-serif}
+.pi{display:flex;align-items:center;gap:8px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-weight:500;font-size:13px;line-height:1.25;cursor:grab;min-height:44px;user-select:none;touch-action:pan-y}
+.pi small{display:block;color:var(--mute);font-weight:400;font-size:12px}
+.pi i{flex:none;width:10px;height:22px;border-radius:3px}
+.k-outlet i,.t-outlet .kind{background:#b8c4d0}.k-battery i,.t-battery .kind{background:var(--acc)}.k-splitter i,.t-splitter .kind{background:#7cc6fe}.k-lever i,.t-lever .kind{background:var(--warn)}.k-device i,.t-device .kind{background:#cdb8ff}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.tools span{color:var(--mute);font-size:13px;margin-left:auto}
+.bench{position:relative;height:clamp(620px,calc(100vh - 130px),1200px);overflow:auto;border-radius:14px;border:1px solid var(--line);background:#1a1e23 radial-gradient(circle,#343c46 1.2px,transparent 1.6px) 0 0/22px 22px}
+.sizer{position:relative}
+.stage{position:absolute;left:0;top:0;width:2400px;height:1600px;transform-origin:0 0}
+.zoom{display:flex;gap:4px;align-items:center}.zoom button{min-width:40px;padding:0 10px}.zoom output{min-width:48px;text-align:center;font-size:13px;color:var(--mute)}
+#wires{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#wires .hit{stroke:transparent;stroke-width:16;fill:none;cursor:pointer;pointer-events:stroke}
+#wires .w{fill:none;stroke-width:3.5;stroke-linecap:round;pointer-events:none}
+#wires .hit:hover+.w{stroke-dasharray:6 5}
+.node{position:absolute;width:176px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px 10px;box-shadow:0 6px 0 #0c0e11,0 12px 22px #0008;cursor:grab;touch-action:none;user-select:none}
+.node.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc),0 12px 22px #0008}
+.node.dark{border-color:var(--bad)}
+.nh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute)}
+.kind{width:8px;height:8px;border-radius:50%}
+.del{margin-left:auto;min-height:28px;width:28px;padding:0;border:0;background:none;color:var(--mute);font-size:18px;line-height:1}
+.nm{display:block;font-weight:600;font-size:14px;line-height:1.25;margin:2px 0}
+.meta{font-size:12px;color:var(--mute)}
+.st{font-size:12px;font-weight:600;margin-top:4px}
+.gauge{height:8px;border-radius:4px;background:#0c0e11;margin-top:8px;overflow:hidden}.gauge b{display:block;height:100%;border-radius:4px}
+.port{position:absolute;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;background:var(--bg);border:3px solid var(--mute);touch-action:none}
+.port.in{left:-11px}.port.out{right:-11px;cursor:crosshair;border-color:var(--acc)}.port.out:hover{background:var(--acc)}
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.verdict .big{font-weight:700;font-size:clamp(26px,3vw,34px);line-height:1.08;margin:0 0 6px;text-wrap:balance}
+.verdict p{color:var(--mute);font-size:14px}
+.fig{position:relative;min-height:300px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mute);margin-top:6px}.legend i{display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.bat{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.bat:first-child{border:0;margin:0;padding:0}
+.bh{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.bh b{font-size:15px}.tag{font-size:14px;font-weight:600;white-space:nowrap}
+.meter{height:12px;background:#0c0e11;border-radius:6px;margin:8px 0 6px;overflow:hidden}.meter b{display:block;height:100%}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;font-size:13px;color:var(--mute)}
+.stats b{color:var(--ink);font-weight:600;white-space:nowrap}
+.warn{color:var(--warn);font-size:13px;margin-top:6px}
+.devs{list-style:none;margin:10px 0 0;padding:0;font-size:13px}
+.devs li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-top:1px solid var(--line)}
+.devs li span:last-child{white-space:nowrap;font-weight:600}
+.insp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.insp .full{grid-column:1/-1}
+.hint{font-size:12px;color:var(--mute);margin-top:8px}
+.empty{color:var(--mute);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:right;padding:5px 4px;border-top:1px solid var(--line)}th:first-child,td:first-child{text-align:left}th{color:var(--mute);font-weight:500}
+details{font-size:14px;color:var(--mute)}details summary{cursor:pointer;color:var(--ink);font-weight:600;min-height:32px}
+details li{margin:4px 0}a{color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#1a0b06;font-weight:600;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10;max-width:90vw}
+.toast.on{opacity:1}
+button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#1a0b06}
+.marq{position:absolute;display:none;border:1.5px dashed var(--acc);background:#ff5d3a1a;border-radius:4px;pointer-events:none;z-index:5}
+.bench[data-tool=pan],.bench.spacepan,.bench.spacepan .node{cursor:grab}.bench.grabbing,.bench.grabbing .node{cursor:grabbing}
+.bench[data-tool=select]{cursor:crosshair}.bench[data-tool=select] .node{cursor:move}
+.stage{touch-action:none}
+.sw{display:flex;align-items:center;gap:8px;margin-top:8px;min-height:30px;padding:0 10px 0 4px;border-radius:15px;font:700 12px "Chakra Petch",Inter,sans-serif;letter-spacing:.04em;border:0;cursor:pointer}
+.sw b{width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0006;transition:transform .15s}
+.lv-on .sw{background:#2fbf71;color:#06210f}.lv-on .sw b{transform:translateX(0)}
+.lv-off .sw{background:#e5484d;color:#2a0607;flex-direction:row-reverse;padding:0 4px 0 10px}
+.node.lv-on{border-color:#2fbf71}.node.lv-off{border-color:#e5484d}
+.node.lv-on .kind{background:#2fbf71}.node.lv-off .kind{background:#e5484d}
+#wires .w.wo{stroke-dasharray:4 6;opacity:.6}
+.port.beam{border-color:#ffd24a;border-radius:4px;transform:rotate(45deg)}.port.out.beam:hover{background:#ffd24a}
+#wires .w.beam{stroke-width:3;stroke-dasharray:10 5;filter:drop-shadow(0 0 4px #ffd24a)}
+.t-emitter .kind,.t-prism .kind,.t-reflector .kind,.t-converter .kind,.t-collector .kind,.k-emitter i,.k-prism i,.k-reflector i,.k-converter i,.k-collector i{background:#ffd24a}
+.menu{position:fixed;z-index:11;min-width:220px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 12px 30px #000a;display:none}
+.menu.on{display:block}
+.menu button{display:flex;justify-content:space-between;gap:16px;width:100%;border:0;background:none;text-align:left;min-height:40px;padding:0 10px;font-weight:500}
+.menu button:hover,.menu button:focus-visible{background:var(--line);outline:none}
+.menu button kbd{font:12px Inter,sans-serif;color:var(--mute)}
+.menu button.dz{color:var(--bad)}
+.menu button[disabled]{opacity:.4;cursor:default}
+.ghost{position:fixed;pointer-events:none;z-index:9;opacity:.85}
+@media(max-width:1150px){.wrap{grid-template-columns:170px minmax(0,1fr)}.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
+@media(max-width:700px){.wrap{grid-template-columns:minmax(0,1fr)}.pal{flex-direction:row;overflow-x:auto;max-height:none;padding-bottom:6px}.pal h2{display:none}.pi{flex:none;width:150px;touch-action:pan-x}.bench{height:72vh}.side{display:flex}.night input{width:130px}.tools span{margin-left:0;width:100%}}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Will the base stay lit until 6 AM?</h1>
+    <p>An Abiotic Factor power planner. Wall outlets go dark at 9 PM. Wire outlets, batteries, plug strips and devices together and see which battery empties first and which devices lose power.</p>
+  </div>
+  <div class="night">
+    <label>Night length (real seconds)<input type="number" id="nl" min="10" step="1" inputmode="numeric"></label>
+  </div>
+</header>
+
+<main class="wrap">
+  <aside class="palwrap"><input id="q" type="search" placeholder="Search parts…" aria-label="Search parts"><div class="pal" id="pal" aria-label="Parts"></div></aside>
+
+  <section>
+    <div class="tools">
+      <button id="undo">Undo</button>
+      <button id="clear">Clear board</button>
+      <button id="sample">Load sample base</button>
+      <div class="zoom" role="group" aria-label="Tool"><button id="tsel" aria-pressed="true" title="Select tool (V)">Select</button><button id="tpan" aria-pressed="false" title="Pan tool (H) — or hold Space">Pan</button></div>
+      <div class="zoom" aria-label="Zoom"><button id="zo" aria-label="Zoom out">−</button><output id="zv">100%</output><button id="zi" aria-label="Zoom in">+</button><button id="zf">Fit</button></div>
+      <span>V select · H or hold Space to pan · drag empty board to box-select · Ctrl+scroll to zoom · right-click a card for more · drag from <b style="color:var(--acc)">●</b> to a card to plug in · tap a cable to unplug</span>
+    </div>
+    <div class="bench" id="bench"><div class="sizer" id="sizer"><div class="stage" id="stage"><svg id="wires"></svg><div id="nodes"></div><div class="marq" id="marq"></div></div></div></div>
+  </section>
+
+  <aside class="side">
+    <div class="card verdict" id="verdict"></div>
+    <div class="card">
+      <h2>Battery charge, 9 PM → 6 AM</h2>
+      <div class="fig"><svg id="chart" role="img" aria-label="Battery charge through the night"></svg></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card" id="cards"></div>
+    <div class="card" id="insp"></div>
+    <div class="card">
+      <h2>Quick reference</h2>
+      <table>
+        <thead><tr><th>Battery</th><th>Charge</th><th>Refill</th><th>Devices / night*</th></tr></thead>
+        <tbody><tr><td>Makeshift</td><td>50</td><td>250 s</td><td>&lt;1</td></tr><tr><td>Industrial</td><td>100</td><td>250 s</td><td>1</td></tr><tr><td>Carbon</td><td>350</td><td>292 s</td><td>6</td></tr><tr><td>Quantum</td><td>700</td><td>350 s</td><td>12</td></tr></tbody>
+      </table>
+      <p class="hint">*One battery on its own, default 270 s night.</p>
+      <details style="margin-top:10px">
+        <summary>How the math works</summary>
+        <ul>
+          <li>At 9 PM the outlets go dead. A battery with charge and no charged battery above it starts draining.</li>
+          <li>It loses 1 charge every 5 s for each device below it, plus 1 for each battery below it. Every downstream battery and device counts, even through plug strips and other batteries.</li>
+          <li>Downstream batteries hold their charge until the batteries above them are empty. That's why long chains are wasteful and why one battery feeding a strip of batteries works well.</li>
+          <li>Plug strips, plug boards and levers add no load. A lever set to Off cuts off everything after it.</li>
+          <li>The parts list comes from the wiki's deployables page. The wiki doesn't mark which items need power, so a few may not actually draw any. Search for anything missing and add it as a custom device.</li>
+          <li>Every device drains 1 by default. The wiki says some devices (like a refrigerator) drain more than others but doesn't give numbers, so change a device's drain if you've measured it.</li>
+          <li>Lasers: the Laser Emitter costs its battery 1 per 5 s. A Laser Power Converter at the end of the beam acts like an outlet that stays on all night while the emitter has power, so nothing after it adds load to the emitter's battery. Batteries under a converter recharge. Prisms split one beam into three, and reflectors pass the beam on. The wiki has no numbers for this; it's based on player reports.</li>
+          <li>Numbers come from the <a href="https://abioticfactor.wiki.gg/wiki/Battery_(Makeshift)">Abiotic Factor wiki</a>, and the planner matches its worked examples (2 Makeshift in series = 375 s for one device, 2 Industrial = 291.67 s for three). This is a fan-made tool.</li>
+        </ul>
+      </details>
+    </div>
+  </aside>
+</main>
+<div class="toast" id="toast"></div>
+<div class="menu" id="menu" role="menu"></div>
+
+<script>
+{
+const P={
+ outlet:[{name:'Wall outlet'}],
+ battery:[
+  {name:'Battery (Makeshift)',cap:50,rate:1,start:100},
+  {name:'Battery (Industrial)',cap:100,rate:2,start:100},
+  {name:'Battery (Carbon)',cap:350,rate:6,start:100},
+  {name:'Battery (Quantum)',cap:700,rate:10,start:100}],
+ splitter:[{name:'Plug Strip',outs:3},{name:'Plug Board',outs:6}],
+ emitter:[{name:'Laser Emitter',drain:1}],
+ prism:[{name:'Laser Prism'}],
+ reflector:[{name:'Laser Reflector'}],
+ converter:[{name:'Laser Power Converter'}],
+ collector:[{name:'Laser Collector'}],
+ lever:[{name:'Lever',on:true}],
+ device:Object.entries({
+  'Benches & stations':['Crafting Bench','Enhancement Bench','Chemistry Bench','Distillation Bench','Repair and Salvage Station','Auto-Salvager','Ammo Station','Transmogrifier','Database Terminal','Brain Sync','Distribution Pad'],
+  'Kitchen':['Refrigerator','Freezer','Hazard Fridge','Horizon Mini Fridge','Portable Stove','Kitchen Stove','Industrial Stove','Super Stove 4000','Convection Oven','Advanced Oven','Microwave','Warming Drawer'],
+  'Defense':['Chopinator','Tesla Coil','Shock Trap','Laser Tripmine','Laser Turret','Disc Turret','Drop Shield','Neutrino Emitter','OX Tower','X-Ray Tower','Radio Scrambler'],
+  'Charging':['Charging Station','Charging Pad','Charging Crate'],
+  'Lights & comfort':['Antelight','Tri-Lamp','Desk Lamp','Elegant Desk Lamp','Standing Lamp','Sconce Lamp','Construction Lights','Christmas Lights','Heater','Kotatsu','Television'],
+  'Travel':['Teleporter Pad','Jump Pad','Hardlight Bridge (Pedestrian)','Hardlight Bridge (Large)']
+ }).flatMap(([g,a])=>a.map(name=>({name,drain:1,g})))};
+const KIND={outlet:'Outlet',battery:'Battery',splitter:'Splitter',lever:'Lever',device:'Device',emitter:'Laser emitter',prism:'Laser prism',reflector:'Laser reflector',converter:'Laser converter',collector:'Laser collector'};
+const BEAMOUT=new Set(['emitter','prism','reflector']),BEAMIN=new Set(['prism','reflector','converter','collector']),LASER=['emitter','prism','reflector','converter','collector'];
+const GOLD='#ffd24a';
+const PALN={outlet:'Power',battery:'Batteries',splitter:'Splitters',lever:'Switches',device:'Devices'};
+const OUTS={outlet:1,battery:1,lever:1,device:0,emitter:1,prism:3,reflector:1,converter:1,collector:0};
+const COL=['#ff5d3a','#7cc6fe','#e7b8ff','#7ee0c3','#ffd08a','#b9c7ff','#ff9fb2','#c7f08a'];
+const KEY='af-power-v1';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stage=$('stage'),bench=$('bench');
+let S,sel=null,hist=[],drag=null,seq=1,R=null;
+
+function sim(S){
+  const N={},kids={},par={};S.nodes.forEach(n=>{N[n.id]=n;kids[n.id]=[]});
+  S.wires.forEach(([a,b])=>{if(N[a]&&N[b]){kids[a].push(b);par[b]=a}});
+  const L=+S.night||270,dt=0.05;
+  const on=n=>n.type!=='lever'||n.on!==false;
+  const chain={},cut={},root={};
+  S.nodes.forEach(n=>{
+    if(['prism','reflector','converter','collector','outlet'].includes(n.type)){chain[n.id]=[];cut[n.id]=false;root[n.id]=null;return}
+    const c=[];let p=par[n.id],x=false,r=null,g=0;
+    while(p&&g++<500){const q=N[p];if(q.type==='converter'||q.type==='outlet'){r=p;break}if(['prism','reflector','emitter','collector'].includes(q.type))break;if(!on(q)){x=true;break}if(q.type==='battery')c.push(p);p=par[p]}
+    chain[n.id]=x?[]:c;cut[n.id]=x;root[n.id]=x?null:r});
+  const emitterOf=id=>{let p=par[id],g=0;while(p&&g++<500&&(N[p].type==='prism'||N[p].type==='reflector'))p=par[p];return p&&N[p].type==='emitter'?p:null};
+  const sub=(id,seen)=>{let s=0;for(const k of kids[id]){if(seen.has(k))continue;seen.add(k);const n=N[k];if(!on(n))continue;
+    if(n.type==='battery')s+=1;if(n.type==='device'||n.type==='emitter')s+=+n.drain||0;if(n.type!=='emitter')s+=sub(k,seen)}return s};
+  const bats=S.nodes.filter(n=>n.type==='battery'),users=S.nodes.filter(n=>n.type==='device'||n.type==='emitter'),convs=S.nodes.filter(n=>n.type==='converter'||n.type==='collector');
+  const load={};bats.forEach(b=>load[b.id]=sub(b.id,new Set()));
+  const ch={},dead={},pts={};bats.forEach(b=>{ch[b.id]=(+b.cap||0)*(b.start==null?100:+b.start)/100;dead[b.id]=ch[b.id]<=0?0:null;pts[b.id]=[[0,b.cap?ch[b.id]/b.cap*100:0]]});
+  const first={},darkT={},cFirst={},loops=new Set();users.forEach(u=>darkT[u.id]=0);
+  const every=Math.max(1,Math.round(L/dt/160));let i=0;
+  for(let t=0;t<L-1e-9;t+=dt,i++){
+    const h=Math.min(dt,L-t),memo={};
+    const live=(cid,vis)=>{if(cid in memo)return memo[cid];if(vis.has(cid)){loops.add(cid);return true}
+      const v=new Set(vis);v.add(cid);const e=emitterOf(cid);const r=e?powered(e,v):false;memo[cid]=r;return r};
+    const powered=(id,vis)=>{if(cut[id])return false;if(chain[id].some(a=>ch[a]>0))return true;const r=root[id];return!!(r&&N[r].type==='converter'&&live(r,vis||new Set()))};
+    const act=[],chg=[];
+    for(const b of bats){if(chain[b.id].some(a=>ch[a]>0))continue;const r=root[b.id];
+      if(r&&N[r].type==='converter'&&live(r,new Set()))chg.push(b);else if(ch[b.id]>0)act.push(b)}
+    users.forEach(u=>{if(!powered(u.id)){darkT[u.id]+=h;if(first[u.id]==null)first[u.id]=t}});
+    convs.forEach(c=>{if(!live(c.id,new Set())&&cFirst[c.id]==null)cFirst[c.id]=t});
+    for(const b of chg){ch[b.id]=Math.min(+b.cap||0,ch[b.id]+(+b.rate||0)/5*h)}
+    for(const b of act){const r=load[b.id]/5;if(!r)continue;const before=ch[b.id];ch[b.id]-=r*h;if(ch[b.id]<=0){ch[b.id]=0;if(dead[b.id]==null)dead[b.id]=t+before/r}}
+    if(i%every===0||t+h>=L-1e-9)bats.forEach(b=>pts[b.id].push([t+h,b.cap?ch[b.id]/b.cap*100:0]));
+  }
+  const dev={};users.forEach(d=>{let st;if(cut[d.id])st='off';else if(!par[d.id]||(!chain[d.id].length&&!root[d.id]))st='loose';else st='live';
+    dev[d.id]={st,dead:st==='live'?(first[d.id]??null):null,dark:darkT[d.id]}});
+  const conv={};convs.forEach(c=>conv[c.id]={emitter:emitterOf(c.id),dead:cFirst[c.id]??null,loop:loops.has(c.id)});
+  return {L,load,ch,dead,pts,dev,chain,conv};
+}
+
+
+function sample(){
+  const n=(t,i,x,y,id,o)=>{const r=Object.assign({id,type:t,x,y},P[t][i],o||{});delete r.g;return r};
+  return {night:270,nodes:[
+    n('outlet',0,20,60,'o1'),n('battery',1,230,40,'b1'),n('battery',1,440,40,'b2'),n('splitter',0,650,40,'s1'),
+    n('device',0,880,10,'d1'),n('device',1,880,120,'d2'),n('device',P.device.findIndex(d=>d.name==='Refrigerator'),880,230,'d3'),
+    n('outlet',0,20,420,'o2'),n('battery',0,230,420,'b3'),n('splitter',1,440,420,'s2'),
+    n('battery',0,650,340,'b4'),n('battery',0,650,470,'b5'),n('device',P.device.findIndex(d=>d.name==='Tesla Coil'),880,340,'d4'),n('device',P.device.findIndex(d=>d.name==='Antelight'),880,470,'d5'),
+    n('lever',0,650,600,'l1'),n('device',P.device.findIndex(d=>d.name==='Heater'),880,600,'d6')],
+   wires:[['o1','b1'],['b1','b2'],['b2','s1'],['s1','d1'],['s1','d2'],['s1','d3'],['o2','b3'],['b3','s2'],['s2','b4'],['s2','b5'],['b4','d4'],['b5','d5'],['s2','l1'],['l1','d6']]};
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.nodes)return s}catch(e){}return null}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function snap(){hist.push(JSON.stringify(S));if(hist.length>60)hist.shift()}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2600)}
+S=load()||sample();
+const node=id=>S.nodes.find(n=>n.id===id);
+const parent=id=>(S.wires.find(w=>w[1]===id)||[])[0];
+const num=v=>{const x=parseFloat(v);return isFinite(x)?x:0};
+const maxOut=n=>n.type==='splitter'?(num(n.outs)||Infinity):OUTS[n.type];
+function nid(){let i;do{i='n'+(seq++)}while(node(i));return i}
+
+/* ---------- palette ---------- */
+const pi=(t,i,p)=>`<div class="pi k-${t}" data-t="${t}" data-i="${i}" role="button" tabindex="0"><i></i><span>${esc(t==='battery'?p.name.replace('Battery (','').replace(')','')+' battery':p.name)}<small>${t==='battery'?p.cap+' charge':t==='splitter'?(p.outs?p.outs+' outputs':'many outputs'):t==='device'?'drain '+p.drain:t==='lever'?'on / off':t==='emitter'?'power → beam':t==='prism'?'1 beam → 3':t==='reflector'?'redirects beam':t==='converter'?'beam → power':t==='collector'?'charges laser gear':'dark at night'}</small></span></div>`;
+function renderPal(){
+  const q=$('q').value.trim().toLowerCase(),hit=p=>!q||p.name.toLowerCase().includes(q)||(p.g||'').toLowerCase().includes(q);
+  let h='';
+  ['outlet','battery','splitter','lever'].forEach(t=>{const a=P[t].map((p,i)=>hit(p)?pi(t,i,p):'').join('');if(a)h+=`<h2>${PALN[t]}</h2>`+a});
+  {const a=LASER.map(t=>hit(P[t][0])||(q&&'laser'.includes(q))?pi(t,0,P[t][0]):'').join('');if(a)h+='<h2>Lasers</h2>'+a}
+  let g0='';P.device.forEach((p,i)=>{if(!hit(p))return;if(p.g!==g0){g0=p.g;h+=`<h2>${esc(g0)}</h2>`}h+=pi('device',i,p)});
+  if(q)h+=`<h2>Not listed?</h2><div class="pi k-device" data-t="device" data-i="-1" role="button" tabindex="0"><i></i><span>Add “${esc($('q').value.trim())}”<small>as a custom device</small></span></div>`;
+  else h+=`<h2>Other</h2>${pi('device',-1,{name:'Custom device',drain:1})}`;
+  $('pal').innerHTML=h;
+}
+$('q').addEventListener('input',renderPal);renderPal();
+function addNode(t,i,x,y){
+  snap();
+  if(x==null){x=bench.scrollLeft/Z+40+Math.random()*140;y=bench.scrollTop/Z+40+Math.random()*140}
+  const pre=i<0?{name:$('q').value.trim()||'Custom device',drain:1}:Object.assign({},P[t][i]);delete pre.g;
+  const n=Object.assign({id:nid(),type:t,x:Math.max(12,x),y:Math.max(12,y)},pre);
+  S.nodes.push(n);render();setSel([n.id]);
+}
+$('pal').addEventListener('keydown',e=>{const p=e.target.closest('.pi');if(p&&(e.key==='Enter'||e.key===' ')){e.preventDefault();addNode(p.dataset.t,+p.dataset.i)}});
+
+/* ---------- rendering ---------- */
+function meta(n){
+  if(n.type==='battery')return `${num(n.cap)} charge${num(n.start)<100?' · starts '+num(n.start)+'%':''}`;
+  if(n.type==='splitter')return num(n.outs)?`${num(n.outs)} outputs`:'Unlimited outputs';
+  if(n.type==='lever')return n.on===false?'Off':'On';
+  if(n.type==='outlet')return 'Off 9 PM – 6 AM';
+  if(n.type==='emitter')return `Drains ${num(n.drain)} / 5 s · beam out`;
+  if(n.type==='prism')return 'Splits 1 beam into 3';
+  if(n.type==='reflector')return 'Passes the beam on';
+  if(n.type==='converter')return 'Beam in → power out';
+  if(n.type==='collector')return 'Beam in · charges gear';
+  return `Drains ${num(n.drain)} / 5 s`;
+}
+function render(){
+  $('nodes').innerHTML=S.nodes.map(n=>`<div class="node t-${n.type}${SEL.has(n.id)?' sel':''}${n.type==='lever'?(n.on===false?' lv-off':' lv-on'):''}" data-id="${esc(n.id)}" style="left:${n.x}px;top:${n.y}px">
+    <div class="nh"><span class="kind"></span>${KIND[n.type]}<button class="del" aria-label="Remove ${esc(n.name)}">×</button></div>
+    <span class="nm">${esc(n.name)}</span><span class="meta">${meta(n)}</span>
+    ${n.type==='battery'?'<div class="gauge"><b></b></div>':''}${['device','emitter','converter','collector'].includes(n.type)?'<div class="st"></div>':''}${n.type==='lever'?`<button class="sw" aria-pressed="${n.on!==false}" aria-label="Toggle ${esc(n.name)}"><b></b><span>${n.on===false?'OFF':'ON'}</span></button>`:''}
+    ${n.type!=='outlet'?`<i class="port in${BEAMIN.has(n.type)?' beam':''}"></i>`:''}${n.type!=='device'&&n.type!=='collector'?`<i class="port out${BEAMOUT.has(n.type)?' beam':''}" title="${BEAMOUT.has(n.type)?'Drag to aim the beam':'Drag to connect'}"></i>`:''}</div>`).join('');
+  drawWires();calc();save();
+}
+function el(id){return stage.querySelector(`.node[data-id="${CSS.escape(id)}"]`)}
+function pt(id,side){const e=el(id),n=node(id);if(!e||!n)return[0,0];return[n.x+(side?e.offsetWidth:0),n.y+e.offsetHeight/2]}
+function path(a,b){const dx=Math.max(40,Math.abs(b[0]-a[0])/2);return `M${a[0]},${a[1]} C${a[0]+dx},${a[1]} ${b[0]-dx},${b[1]} ${b[0]},${b[1]}`}
+function wireCol(a){let p=a,g=0;while(p&&g++<200){const n=node(p);if(n&&(n.type==='converter'||BEAMOUT.has(n.type)))return GOLD;if(n&&n.type==='battery'){const i=S.nodes.filter(x=>x.type==='battery').indexOf(n);return COL[i%COL.length]}p=parent(p)}return '#6b7683'}
+function drawWires(tmp){
+  $('wires').innerHTML=S.wires.map((w,i)=>{const d=path(pt(w[0],1),pt(w[1],0));const off=(()=>{let p=w[0],g=0;while(p&&g++<200){const q=node(p);if(q&&q.type==='lever'&&q.on===false)return true;p=parent(p)}return false})();const bm=BEAMOUT.has(node(w[0])?.type);return `<path class="hit" data-w="${i}" d="${d}"/><path class="w${off?' wo':''}${bm?' beam':''}" stroke="${off?'#6b7683':wireCol(w[0])}" d="${d}"/>`}).join('')+
+   (tmp?`<path class="w" stroke="var(--acc)" stroke-dasharray="6 6" d="${path(tmp[0],tmp[1])}"/>`:'');
+}
+
+/* ---------- results ---------- */
+const L=()=>Math.max(10,num(S.night)||270);
+function clock(t){const m=Math.round(21*60+t/L()*540)%1440,h=Math.floor(m/60),mm=m%60;return `${h%12||12}:${String(mm).padStart(2,'0')} ${h<12?'AM':'PM'}`}
+const secs=t=>t>=100?Math.round(t)+' s':t.toFixed(1)+' s';
+function calc(){
+  R=sim({night:L(),nodes:S.nodes,wires:S.wires});
+  const bats=S.nodes.filter(n=>n.type==='battery'),devs=S.nodes.filter(n=>n.type==='device'),lasers=S.nodes.filter(n=>n.type==='emitter'||n.type==='converter'||n.type==='collector');
+  bats.forEach((b,i)=>{const g=el(b.id)?.querySelector('.gauge b');if(g){const end=b.cap?R.ch[b.id]/b.cap*100:0;g.style.width=end+'%';g.style.background=R.dead[b.id]!=null?'var(--bad)':COL[i%COL.length]}});
+  const status=d=>{
+    if(d.type==='converter'||d.type==='collector'){const c=R.conv[d.id];if(!c.emitter)return['No beam','var(--mute)'];if(c.loop&&c.dead==null)return['Self-powered loop','var(--warn)'];return c.dead==null?['Beam on all night','var(--ok)']:c.dead===0?['No beam at night','var(--bad)']:['Beam off at '+clock(c.dead),'var(--bad)']}
+    const r=R.dev[d.id];if(r.st==='loose')return['Not connected','var(--mute)'];if(r.st==='off')return['Switched off','var(--mute)'];
+    if(r.dead==null)return['On all night','var(--ok)'];const back=r.dark<L()-r.dead-0.5;return r.dead===0?[back?'Flickers':'No power at night','var(--bad)']:['Dark at '+clock(r.dead)+(back?' (comes back)':''),'var(--bad)']};
+  [...devs,...lasers].forEach(d=>{const c=el(d.id);if(!c)return;const[s,col]=status(d);const st=c.querySelector('.st');st.textContent=s;st.style.color=col;c.classList.toggle('dark',col==='var(--bad)')});
+  // verdict
+  const live=devs.filter(d=>R.dev[d.id].st==='live');
+  const fail=live.filter(d=>R.dev[d.id].dead!=null).sort((a,b)=>R.dev[a.id].dead-R.dev[b.id].dead);
+  let big,sub,col='var(--ink)';
+  if(!devs.length){big='Add some devices';sub='Drop an outlet, a battery and a device on the board, then wire them left to right.'}
+  else if(!live.length){big='Nothing is wired up yet';sub='Drag from an orange port to plug one card into the next: outlet → battery → strip → devices.'}
+  else if(!fail.length){col='var(--ok)';big='Yes — the lights stay on until 6 AM';const lo=bats.filter(b=>R.chain&&b.cap).map(b=>({b,p:R.ch[b.id]/b.cap*100})).sort((a,b)=>a.p-b.p).find(x=>R.load[x.b.id]>0);sub=`All ${live.length} wired device${live.length>1?'s':''} stay powered.${lo?` Lowest battery: ${lo.b.name} with ${Math.round(R.ch[lo.b.id])} charge left.`:''}`}
+  else{col='var(--bad)';const f=fail[0],t=R.dev[f.id].dead;big=t===0?`No — ${f.name} has no battery`:`No — ${f.name} goes dark at ${clock(t)}`;sub=`${fail.length} of ${live.length} wired device${live.length>1?'s':''} lose power before 6 AM${t>0?`, the first one ${secs(L()-t)} before the outlets come back`:''}.`}
+  $('verdict').innerHTML=`<p class="big" style="color:${col}">${esc(big)}</p><p>${esc(sub)} Night lasts ${L()} s (9 PM → 6 AM).</p>`;
+  // battery cards
+  const loose=devs.filter(d=>R.dev[d.id].st==='loose');
+  $('cards').innerHTML=(bats.length?bats.map((b,i)=>{
+    const c=COL[i%COL.length],end=b.cap?R.ch[b.id]/b.cap*100:0,dd=R.dead[b.id],ld=R.load[b.id]||0,sc=num(b.cap)*num(b.start)/100;
+    const tag=!ld?'Idle':dd==null?Math.round(R.ch[b.id])+' left':'Empty '+clock(dd);
+    const outs=S.wires.filter(w=>w[0]===b.id).length;
+    return `<div class="bat"><div class="bh"><b><span style="color:${c}">●</span> ${esc(b.name)}</b><span class="tag" style="color:${!ld?'var(--mute)':dd==null?'var(--ok)':'var(--bad)'}">${tag}</span></div>
+    <div class="meter"><b style="width:${end}%;background:${dd==null?c:'var(--bad)'}"></b></div>
+    <div class="stats"><span>Load <b>${ld} / 5 s</b></span><span>Starts with <b>${Math.round(sc)}</b></span>
+    <span>Alone it lasts <b>${ld?secs(sc/ld*5):'—'}</b></span><span>Refill <b>${num(b.rate)?secs(num(b.cap)/num(b.rate)*5):'—'}</b></span></div>
+    ${R.chain[b.id]&&R.chain[b.id].length?`<div class="hint">Holds its charge until the battery above it is empty.</div>`:''}
+    ${!parent(b.id)?'<div class="warn">Not plugged into an outlet, so it won’t recharge during the day.</div>':''}
+    ${!outs?'<div class="warn">Nothing plugged into it.</div>':''}</div>`}).join(''):'<p class="empty">No batteries on the board. Without one, everything goes dark at 9 PM.</p>')+
+    (devs.length||lasers.length?`<ul class="devs">${[...devs,...lasers].map(d=>{const[s,c]=status(d);return `<li><span>${esc(d.name)}</span><span style="color:${c}">${s}</span></li>`}).join('')}</ul>`:'')+
+    (loose.length?`<div class="warn">${loose.length} device${loose.length>1?'s are':' is'} not connected to anything.</div>`:'');
+  drawChart();
+  $('legend').innerHTML=bats.map((b,i)=>`<span><i style="background:${COL[i%COL.length]}"></i>${esc(b.name)}</span>`).join('');
+}
+function drawChart(){
+  const s=$('chart'),W=s.clientWidth,H=s.clientHeight;if(!W||!R)return;
+  const Lt=L(),pl=38,pr=12,pt_=10,pb=26,X=t=>pl+t/Lt*(W-pl-pr),Y=v=>pt_+(100-v)/100*(H-pt_-pb);
+  let g='';
+  [0,25,50,75,100].forEach(v=>g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#38404a"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#9aa5b1">${v}%</text>`);
+  const hrs=W<420?[0,3,6,9]:[0,2,4,6,8,9];
+  hrs.forEach(h=>{const t=h/9*Lt;g+=`<text x="${X(t)}" y="${H-8}" text-anchor="${h===0?'start':h===9?'end':'middle'}" font-size="11" fill="#9aa5b1">${clock(t).replace(':00','')}</text>`});
+  S.nodes.filter(n=>n.type==='battery').forEach((b,i)=>{const p=R.pts[b.id];if(!p)return;
+    g+=`<polyline fill="none" stroke="${COL[i%COL.length]}" stroke-width="2.5" stroke-linejoin="round" points="${p.map(q=>X(q[0]).toFixed(1)+','+Y(q[1]).toFixed(1)).join(' ')}"/>`;
+    if(R.dead[b.id]!=null)g+=`<circle cx="${X(R.dead[b.id])}" cy="${Y(0)}" r="5" fill="var(--bad)" stroke="#16191d" stroke-width="2"/>`});
+  s.innerHTML=g;
+}
+const ro=new ResizeObserver(drawChart);ro.observe($('chart'));
+
+/* ---------- inspector ---------- */
+const FIELDS={
+ outlet:[['name','Name','text','full']],
+ battery:[['name','Name','text','full'],['cap','Max charge','number'],['start','Charge at 9 PM (%)','number'],['rate','Recharge per 5 s','number','full']],
+ splitter:[['name','Name','text','full'],['outs','Outputs (0 = unlimited)','number','full']],
+ lever:[['name','Name','text','full'],['on','Position','onoff','full']],
+ device:[['name','Name','text','full'],['drain','Drain per 5 s','number','full']],
+ emitter:[['name','Name','text','full'],['drain','Drain per 5 s','number','full']],
+ prism:[['name','Name','text','full']],reflector:[['name','Name','text','full']],converter:[['name','Name','text','full']],collector:[['name','Name','text','full']]};
+const HINT={battery:'Batteries drain 1 charge per 5 s for each device and each battery below them.',device:'The wiki lists 1 per device. Raise it if you’ve measured this device draining faster.',splitter:'Plug Strips split one cable into three. Splitters add no load.',lever:'Double-click the lever card or tap its switch to flip it. Off cuts power to everything after it, so the battery above lasts longer.',outlet:'Outlets charge batteries during the day and shut off at 9 PM.',
+ emitter:'Costs its battery 1 per 5 s like any device. Everything powered by the beam downstream adds nothing to that battery (player-reported).',
+ prism:'Splits one beam into 3 weaker beams (wiki). The planner assumes a weaker beam still runs a converter fully, which is not confirmed.',
+ reflector:'Redirects a beam. It needs no power and costs nothing, so in the planner it just passes the beam on.',
+ converter:'Turns a beam into power that stays on at night while its emitter has power. One output cable; add a Plug Strip to split it. Players report converter power can stutter on some devices.',
+ collector:'Uses the beam to charge laser gear, and powers nothing else. It shows whether the beam stays on all night.'};
+function renderInsp(){
+  if(SEL.size>1){const ns=[...SEL].map(node).filter(Boolean),c={};ns.forEach(n=>c[n.type]=(c[n.type]||0)+1);const devs=ns.filter(n=>n.type==='device');
+    $('insp').innerHTML=`<h2>${ns.length} parts selected</h2><p class="hint" style="margin:0 0 10px">${Object.entries(c).map(([t,k])=>k+' '+KIND[t].toLowerCase()+(k>1?'s':'')).join(' · ')}</p>
+    ${devs.length?`<div class="insp"><label class="full">Drain per 5 s, all ${devs.length} selected device${devs.length>1?'s':''}<input data-bulk="drain" type="number" step="any" min="0" inputmode="decimal" value="${devs.every(d=>d.drain===devs[0].drain)?esc(devs[0].drain):''}" placeholder="mixed"></label></div>`:''}
+    <div class="tools" style="margin:10px 0 0"><button data-act="dup">Duplicate</button><button data-act="unplug">Unplug</button><button data-act="del" style="color:var(--bad)">Delete</button></div>
+    <p class="hint">Drag any selected card to move them together. Shift-click to add or remove one.</p>`;return}
+  const n=sel&&node(sel);
+  if(!n){$('insp').innerHTML='<h2>Edit a part</h2><p class="empty">Tap a card to change its charge, drain or name. Drag on empty board to box-select several.</p>';return}
+  $('insp').innerHTML=`<h2>Edit ${KIND[n.type].toLowerCase()}</h2><div class="insp">${FIELDS[n.type].map(([k,l,t,c])=>`<label class="${c||''}">${l}${t==='onoff'?`<select data-k="${k}"><option value="1"${n.on!==false?' selected':''}>On</option><option value="0"${n.on===false?' selected':''}>Off</option></select>`:`<input data-k="${k}" type="${t}" ${t==='number'?'step="any" min="0" inputmode="decimal"':''} value="${esc(n[k]??'')}">`}</label>`).join('')}</div><p class="hint">${HINT[n.type]}</p>`;
+}
+$('insp').addEventListener('focusin',e=>{if(e.target.dataset.k)snap()});
+$('insp').addEventListener('focusin',e=>{if(e.target.dataset.bulk)snap()});
+$('insp').addEventListener('input',e=>{const b=e.target.dataset.bulk;if(!b||e.target.value==='')return;[...SEL].map(node).filter(n=>n&&n.type==='device').forEach(n=>{n[b]=num(e.target.value);const c=el(n.id);if(c)c.querySelector('.meta').textContent=meta(n)});calc();save()});
+$('insp').addEventListener('input',e=>{const k=e.target.dataset.k,n=node(sel);if(!k||!n)return;const f=FIELDS[n.type].find(f=>f[0]===k);
+  n[k]=f[2]==='onoff'?e.target.value==='1':f[2]==='number'?num(e.target.value):e.target.value;
+  const c=el(n.id);if(c){c.querySelector('.nm').textContent=n.name;c.querySelector('.meta').textContent=meta(n)}calc();save()});
+
+/* ---------- pointer: move, wire, palette drag ---------- */
+const SW=2400,SH=1600;let Z=1;
+function local(e){const r=stage.getBoundingClientRect();return[(e.clientX-r.left)/Z,(e.clientY-r.top)/Z]}
+function setZoom(z,cx,cy){
+  const r=bench.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;
+  const wx=(bench.scrollLeft+cx)/Z,wy=(bench.scrollTop+cy)/Z;
+  Z=Math.max(.3,Math.min(2,Math.round(z*100)/100));
+  stage.style.transform=`scale(${Z})`;$('sizer').style.width=SW*Z+'px';$('sizer').style.height=SH*Z+'px';$('zv').textContent=Math.round(Z*100)+'%';
+  bench.scrollLeft=wx*Z-cx;bench.scrollTop=wy*Z-cy;
+}
+function fit(){
+  if(!S.nodes.length){setZoom(1);bench.scrollLeft=bench.scrollTop=0;return}
+  const xs=S.nodes.map(n=>n.x),ys=S.nodes.map(n=>n.y),x0=Math.min(...xs)-30,y0=Math.min(...ys)-30,x1=Math.max(...xs)+210,y1=Math.max(...ys)+130;
+  const z=Math.max(.3,Math.min(1.25,bench.clientWidth/(x1-x0),bench.clientHeight/(y1-y0)));
+  setZoom(z);bench.scrollLeft=x0*Z;bench.scrollTop=y0*Z;
+}
+$('zi').onclick=()=>setZoom(Z*1.2);$('zo').onclick=()=>setZoom(Z/1.2);$('zf').onclick=fit;
+bench.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();const r=bench.getBoundingClientRect();setZoom(Z*(e.deltaY<0?1.1:1/1.1),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+/* ---------- selection ---------- */
+let SEL=new Set(),tool=matchMedia('(pointer:coarse)').matches?'pan':'select',spaceDown=false;
+function setSel(ids){SEL=new Set(ids.filter(id=>node(id)));sel=SEL.size===1?[...SEL][0]:null;
+  stage.querySelectorAll('.node').forEach(c=>c.classList.toggle('sel',SEL.has(c.dataset.id)));renderInsp()}
+function select(id,add){if(id==null)return setSel([]);if(add){const a=new Set(SEL);a.has(id)?a.delete(id):a.add(id);setSel([...a])}else setSel([id])}
+function setTool(t){tool=t;$('tsel').setAttribute('aria-pressed',t==='select');$('tpan').setAttribute('aria-pressed',t==='pan');bench.dataset.tool=t}
+$('tsel').onclick=()=>setTool('select');$('tpan').onclick=()=>setTool('pan');
+stage.addEventListener('pointerdown',e=>{
+  if(e.button===2||e.target.closest('.del')||e.target.closest('.hit'))return;
+  const c=e.target.closest('.node');
+  if(e.target.classList.contains('out')&&c&&e.button===0){drag={mode:'wire',from:c.dataset.id};e.preventDefault();return}
+  if(spaceDown||e.button===1||(tool==='pan'&&!c)){drag={mode:'pan',sx:e.clientX,sy:e.clientY,l:bench.scrollLeft,t:bench.scrollTop,moved:false,on:c&&c.dataset.id};bench.classList.add('grabbing');e.preventDefault();return}
+  if(e.button!==0)return;
+  if(c){const id=c.dataset.id,add=e.shiftKey||e.ctrlKey||e.metaKey;
+    if(add){select(id,true);return}
+    if(!SEL.has(id))setSel([id]);
+    drag={mode:'move',id,ids:[...SEL],sx:e.clientX,sy:e.clientY,o:[...SEL].map(i=>{const n=node(i);return[n.x,n.y]}),moved:false};e.preventDefault();return}
+  const[x,y]=local(e);drag={mode:'box',x,y,add:e.shiftKey||e.ctrlKey||e.metaKey,base:[...SEL]};e.preventDefault();
+});
+$('pal').addEventListener('pointerdown',e=>{const p=e.target.closest('.pi');if(!p||e.button>0)return;
+  drag={mode:'pal',t:p.dataset.t,i:+p.dataset.i,sx:e.clientX,sy:e.clientY,touch:e.pointerType==='touch',src:p}});
+window.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  if(drag.mode==='move'){const dx=(e.clientX-drag.sx)/Z,dy=(e.clientY-drag.sy)/Z;if(!drag.moved&&Math.hypot(dx,dy)<4/Z)return;if(!drag.moved){drag.moved=true;snap()}
+    const xs=drag.o.map(o=>o[0]),ys=drag.o.map(o=>o[1]);
+    const ddx=Math.max(-Math.min(...xs),Math.min(SW-186-Math.max(...xs),dx)),ddy=Math.max(-Math.min(...ys),Math.min(SH-90-Math.max(...ys),dy));
+    drag.ids.forEach((id,i)=>{const n=node(id);n.x=drag.o[i][0]+ddx;n.y=drag.o[i][1]+ddy;const c=el(id);c.style.left=n.x+'px';c.style.top=n.y+'px'});drawWires()}
+  else if(drag.mode==='pan'){const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(Math.hypot(dx,dy)>4)drag.moved=true;bench.scrollLeft=drag.l-dx;bench.scrollTop=drag.t-dy}
+  else if(drag.mode==='box'){const[x,y]=local(e),x0=Math.min(x,drag.x),y0=Math.min(y,drag.y),w=Math.abs(x-drag.x),h=Math.abs(y-drag.y);
+    const m=$('marq');m.style.display='block';Object.assign(m.style,{left:x0+'px',top:y0+'px',width:w+'px',height:h+'px'});
+    const hit=S.nodes.filter(n=>{const c=el(n.id);return c&&n.x<x0+w&&n.x+c.offsetWidth>x0&&n.y<y0+h&&n.y+c.offsetHeight>y0}).map(n=>n.id);
+    drag.moved=w+h>4;if(drag.moved)setSel(drag.add?[...new Set([...drag.base,...hit])]:hit)}
+  else if(drag.mode==='wire')drawWires([pt(drag.from,1),local(e)]);
+  else if(drag.mode==='pal'&&!drag.touch){if(!drag.g&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6)return;
+    if(!drag.g){drag.g=drag.src.cloneNode(true);drag.g.classList.add('ghost');drag.g.style.width=drag.src.offsetWidth+'px';document.body.appendChild(drag.g)}
+    drag.g.style.left=e.clientX-20+'px';drag.g.style.top=e.clientY-20+'px'}
+});
+window.addEventListener('pointerup',e=>{
+  const d=drag;drag=null;bench.classList.remove('grabbing');$('marq').style.display='none';if(!d)return;
+  if(d.mode==='move'){if(d.moved)save();else setSel([d.id])}
+  else if(d.mode==='pan'){if(!d.moved){if(d.on)setSel([d.on]);else setSel([])}}
+  else if(d.mode==='box'){if(!d.moved&&!d.add)setSel([])}
+  else if(d.mode==='wire'){const t=document.elementFromPoint(e.clientX,e.clientY)?.closest('.node');drawWires();if(t)connect(d.from,t.dataset.id)}
+  else if(d.mode==='pal'){
+    if(d.g){d.g.remove();const r=bench.getBoundingClientRect();if(e.clientX>r.left&&e.clientX<r.right&&e.clientY>r.top&&e.clientY<r.bottom){const[x,y]=local(e);addNode(d.t,d.i,x-88,y-30)}}
+    else if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<8)addNode(d.t,d.i);
+  }
+});
+window.addEventListener('pointercancel',()=>{if(drag&&drag.g)drag.g.remove();drag=null;bench.classList.remove('grabbing');$('marq').style.display='none';drawWires()});
+bench.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault()});
+function connect(a,b){
+  const na=node(a),nb=node(b);if(a===b)return;
+  if(nb.type==='outlet')return toast('Outlets have no input. Plug the outlet into a battery or strip instead.');
+  if(BEAMOUT.has(na.type)&&!BEAMIN.has(nb.type))return toast('A laser beam can only go into a Prism, Reflector, Power Converter or Collector.');
+  if(!BEAMOUT.has(na.type)&&BEAMIN.has(nb.type))return toast(`${KIND[nb.type]}s take a laser beam, not a power cable. Aim a Laser Emitter at it.`);
+  let p=a,g=0,beam=BEAMOUT.has(na.type),loop=false;while(p&&g++<500){if(p===b){loop=true;break}const pp=parent(p);if(pp&&BEAMOUT.has(node(pp)?.type))beam=true;p=pp}
+  if(loop&&!beam)return toast('That would make a loop.');
+  if(loop)setTimeout(()=>toast('Self-powered laser loop. Players report these can flicker in-game.'),2700);
+  snap();
+  S.wires=S.wires.filter(w=>w[1]!==b);
+  const outs=S.wires.filter(w=>w[0]===a),m=maxOut(na);
+  if(outs.length>=m){S.wires=S.wires.filter(w=>w!==outs[0]);toast(m===1?`${KIND[na.type]}s have one output plug, so the old cable was moved. Use a Plug Strip to split it.`:`${na.name} has ${m} outputs, so the oldest cable was unplugged.`)}
+  S.wires.push([a,b]);render();
+}
+stage.addEventListener('click',e=>{
+  const del=e.target.closest('.del');
+  if(del){delNodes([del.closest('.node').dataset.id]);return}
+  const h=e.target.closest('.hit');if(h){snap();S.wires.splice(+h.dataset.w,1);render();toast('Unplugged')}
+});
+
+function flipLever(id){const n=node(id);if(!n||n.type!=='lever')return;snap();n.on=n.on===false;render();setSel([...SEL]);toast(`${n.name} switched ${n.on?'on':'off'}`)}
+stage.addEventListener('dblclick',e=>{const c=e.target.closest('.node');if(c&&!e.target.closest('.sw,.del,.port'))flipLever(c.dataset.id)});
+stage.addEventListener('click',e=>{const b=e.target.closest('.sw');if(b)flipLever(b.closest('.node').dataset.id)});
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('.sw'))e.stopPropagation()},true);
+
+/* ---------- group actions ---------- */
+function freeOut(id){const n=node(id);return n&&S.wires.filter(w=>w[0]===id).length<maxOut(n)}
+function dupNodes(ids,wire){
+  ids=ids.filter(id=>node(id));if(!ids.length)return;snap();
+  const map={},one=ids.length===1;
+  ids.forEach(id=>{const n=node(id);const c=Object.assign({},n,{id:nid()});
+    if(one&&wire){c.x=Math.min(SW-186,n.x);c.y=Math.min(SH-90,n.y<SH-100?n.y+90:n.y-90)}else{c.x=Math.min(SW-186,n.x+30);c.y=Math.min(SH-90,n.y+30)}
+    map[id]=c.id;S.nodes.push(c)});
+  S.wires.filter(w=>map[w[0]]&&map[w[1]]).forEach(w=>S.wires.push([map[w[0]],map[w[1]]]));
+  let plugged=0;
+  if(wire)ids.forEach(id=>{const p=parent(id);if(p&&!map[p]&&freeOut(p)){S.wires.push([p,map[id]]);plugged++}});
+  render();setSel(Object.values(map));
+  toast(one?(plugged?`Copied and plugged into ${node(parent(ids[0])).name}`:'Copied — drag a cable to plug it in'):`Copied ${ids.length} parts${plugged?`, ${plugged} plugged into their sources`:''} (cables between them kept)`);
+}
+function delNodes(ids){if(!ids.length)return;snap();const k=new Set(ids);S.nodes=S.nodes.filter(n=>!k.has(n.id));S.wires=S.wires.filter(w=>!k.has(w[0])&&!k.has(w[1]));render();setSel([]);if(ids.length>1)toast(`Deleted ${ids.length} parts. Undo brings them back.`)}
+function unplugNodes(ids){snap();const k=new Set(ids);S.wires=S.wires.filter(w=>!k.has(w[0])&&!k.has(w[1]));render();toast('Unplugged')}
+
+/* ---------- right-click menu ---------- */
+let menuIds=[],lp=null;
+const menu=$('menu');
+function openMenu(id,x,y){
+  if(!SEL.has(id))setSel([id]);menuIds=[...SEL];const many=menuIds.length>1;
+  const n=node(id),p=parent(id),levers=menuIds.map(node).filter(n=>n.type==='lever');
+  const canPlug=many?menuIds.some(i=>{const q=parent(i);return q&&!SEL.has(q)&&freeOut(q)}):p&&freeOut(p);
+  const items=[['dup',many?`Duplicate ${menuIds.length} parts`:'Duplicate','Ctrl+D'],
+    ['dupw',many?'Duplicate, plugged into same sources':p?`Duplicate, plugged into ${node(p).name}`:'Duplicate, plugged in (no source)','',!canPlug]];
+  if(levers.length)items.push(['flip',levers.length>1?'Flip levers':levers[0].on===false?'Switch on':'Switch off','']);
+  items.push(['unplug','Unplug all cables','',!S.wires.some(w=>SEL.has(w[0])||SEL.has(w[1]))],['del',many?`Delete ${menuIds.length} parts`:'Delete','Del']);
+  menu.innerHTML=items.map(([a,l,k,dis])=>`<button role="menuitem" data-a="${a}"${a==='del'?' class="dz"':''}${dis?' disabled':''}><span>${esc(l)}</span>${k?`<kbd>${k}</kbd>`:''}</button>`).join('');
+  menu.classList.add('on');
+  const r=menu.getBoundingClientRect();menu.style.left=Math.min(x,innerWidth-r.width-8)+'px';menu.style.top=Math.min(y,innerHeight-r.height-8)+'px';
+  menu.querySelector('button:not([disabled])').focus();
+}
+function closeMenu(){menu.classList.remove('on')}
+function runAct(a,ids){
+  if(a==='dup')dupNodes(ids,false);else if(a==='dupw')dupNodes(ids,true);else if(a==='del')delNodes(ids);else if(a==='unplug')unplugNodes(ids);
+  else if(a==='flip'){snap();ids.map(node).filter(n=>n&&n.type==='lever').forEach(n=>n.on=n.on===false);render();setSel(ids)}
+}
+menu.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;closeMenu();runAct(b.dataset.a,menuIds)});
+menu.addEventListener('keydown',e=>{const bs=[...menu.querySelectorAll('button:not([disabled])')],i=bs.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){e.preventDefault();bs[(i+1)%bs.length].focus()}if(e.key==='ArrowUp'){e.preventDefault();bs[(i-1+bs.length)%bs.length].focus()}if(e.key==='Escape')closeMenu()});
+stage.addEventListener('contextmenu',e=>{const c=e.target.closest('.node');if(!c)return;e.preventDefault();drag=null;openMenu(c.dataset.id,e.clientX,e.clientY)});
+document.addEventListener('pointerdown',e=>{if(menu.classList.contains('on')&&!e.target.closest('#menu'))closeMenu()},true);
+stage.addEventListener('pointerdown',e=>{const c=e.target.closest('.node');if(!c||e.pointerType!=='touch'||e.target.classList.contains('port'))return;
+  const x=e.clientX,y=e.clientY;clearTimeout(lp);lp=setTimeout(()=>{if(drag&&drag.moved)return;drag=null;bench.classList.remove('grabbing');openMenu(c.dataset.id,x,y)},550)});
+['pointerup','pointercancel'].forEach(k=>window.addEventListener(k,()=>clearTimeout(lp)));
+window.addEventListener('pointermove',()=>{if(drag&&drag.moved)clearTimeout(lp)});
+bench.addEventListener('scroll',closeMenu);
+$('insp').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b)runAct(b.dataset.act,[...SEL])});
+
+/* ---------- controls ---------- */
+function undo(){const h=hist.pop();if(!h)return toast('Nothing to undo');S=JSON.parse(h);$('nl').value=S.night;render();setSel([...SEL])}
+$('undo').onclick=undo;
+$('clear').onclick=()=>{snap();S.nodes=[];S.wires=[];render();setSel([]);toast('Board cleared. Undo brings it back.')};
+$('sample').onclick=()=>{snap();S=sample();$('nl').value=S.night;render();setSel([])};
+document.addEventListener('keydown',e=>{
+  if(e.target.matches?.('input,select'))return;
+  const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
+  if(mod&&k==='z'){e.preventDefault();undo()}
+  if(e.target.closest?.('#menu'))return;
+  if(e.key===' '&&!spaceDown&&!e.target.closest?.('button')){spaceDown=true;bench.classList.add('spacepan');e.preventDefault()}
+  if(mod&&k==='a'){e.preventDefault();setSel(S.nodes.map(n=>n.id))}
+  if(mod&&k==='d'&&SEL.size){e.preventDefault();dupNodes([...SEL],false)}
+  if((e.key==='Delete'||e.key==='Backspace')&&SEL.size)delNodes([...SEL]);
+  if(!mod&&k==='v')setTool('select');if(!mod&&k==='h')setTool('pan');
+  if(e.key==='Escape'){closeMenu();setSel([])}
+  if((e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))&&SEL.size){e.preventDefault();const id=[...SEL][0],c=el(id).getBoundingClientRect();openMenu(id,c.left+20,c.top+20)}
+});
+document.addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;bench.classList.remove('spacepan')}});
+window.addEventListener('blur',()=>{spaceDown=false;bench.classList.remove('spacepan')});
+setTool(tool);
+function sizeBench(){if(innerWidth<=700){bench.style.height='';return}const top=bench.getBoundingClientRect().top+scrollY;bench.style.height=Math.max(480,innerHeight-top-16)+'px'}
+addEventListener('resize',sizeBench);sizeBench();
+S.nodes.forEach(n=>{if(n.type==='splitter'&&n.name==='Plug Board'&&!num(n.outs))n.outs=6;if(n.type==='device'&&n.name==='Laser Emitter')n.type='emitter'});
+$('nl').value=S.night;setZoom(1);
+$('nl').addEventListener('input',e=>{S.night=num(e.target.value)||270;calc();save()});
+render();renderInsp();
+}
+</script>
+</body>
+</html>
