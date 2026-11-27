@@ -106,6 +106,10 @@ button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#1
 .menu button kbd{font:12px Inter,sans-serif;color:var(--mute)}
 .menu button.dz{color:var(--bad)}
 .menu button[disabled]{opacity:.4;cursor:default}
+.menu .swl{max-height:min(380px,60vh);overflow-y:auto}
+.menu .mh{font-size:12px;color:var(--mute);padding:8px 10px 2px}
+.menu button.cur{color:var(--ok)}
+.menu input{font-size:15px}
 .ghost{position:fixed;pointer-events:none;z-index:9;opacity:.85}
 @media(max-width:1150px){.wrap{grid-template-columns:170px minmax(0,1fr)}.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
 @media(max-width:700px){.wrap{grid-template-columns:minmax(0,1fr)}.pal{flex-direction:row;overflow-x:auto;max-height:none;padding-bottom:6px}.pal h2{display:none}.pi{flex:none;width:150px;touch-action:pan-x}.bench{height:72vh}.side{display:flex}.night input{width:130px}.tools span{margin-left:0;width:100%}}
@@ -527,6 +531,8 @@ function openMenu(id,x,y){
   const canPlug=many?menuIds.some(i=>{const q=parent(i);return q&&!SEL.has(q)&&freeOut(q)}):p&&freeOut(p);
   const items=[['dup',many?`Duplicate ${menuIds.length} parts`:'Duplicate','Ctrl+D'],
     ['dupw',many?'Duplicate, plugged into same sources':p?`Duplicate, plugged into ${node(p).name}`:'Duplicate, plugged in (no source)','',!canPlug]];
+  const types=[...new Set(menuIds.map(i=>node(i).type))];
+  if(types.length===1&&P[types[0]].length>1)items.unshift(['swap',many?`Change ${menuIds.length} to…`:'Change to…','›']);
   if(levers.length)items.push(['flip',levers.length>1?'Flip levers':levers[0].on===false?'Switch on':'Switch off','']);
   items.push(['unplug','Unplug all cables','',!S.wires.some(w=>SEL.has(w[0])||SEL.has(w[1]))],['del',many?`Delete ${menuIds.length} parts`:'Delete','Del']);
   menu.innerHTML=items.map(([a,l,k,dis])=>`<button role="menuitem" data-a="${a}"${a==='del'?' class="dz"':''}${dis?' disabled':''}><span>${esc(l)}</span>${k?`<kbd>${k}</kbd>`:''}</button>`).join('');
@@ -539,8 +545,32 @@ function runAct(a,ids){
   if(a==='dup')dupNodes(ids,false);else if(a==='dupw')dupNodes(ids,true);else if(a==='del')delNodes(ids);else if(a==='unplug')unplugNodes(ids);
   else if(a==='flip'){snap();ids.map(node).filter(n=>n&&n.type==='lever').forEach(n=>n.on=n.on===false);render();setSel(ids)}
 }
-menu.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;closeMenu();runAct(b.dataset.a,menuIds)});
-menu.addEventListener('keydown',e=>{const bs=[...menu.querySelectorAll('button:not([disabled])')],i=bs.indexOf(document.activeElement);
+let menuPos=[0,0];
+function swapMenu(){
+  const t=node(menuIds[0]).type,cur=new Set(menuIds.map(i=>node(i).name)),q=(menu.querySelector('#swq')?.value||'').toLowerCase();
+  let g0='',h=`<button role="menuitem" data-a="back"><span>‹ Back</span></button>`;
+  if(t==='device')h+=`<input id="swq" type="search" placeholder="Filter devices…" aria-label="Filter devices" value="${esc(q)}" style="margin:4px 0 6px;min-height:38px">`;
+  h+='<div class="swl">';
+  P[t].forEach((p,i)=>{if(q&&!p.name.toLowerCase().includes(q)&&!(p.g||'').toLowerCase().includes(q))return;
+    if(p.g&&p.g!==g0){g0=p.g;h+=`<div class="mh">${esc(g0)}</div>`}
+    const sub=t==='battery'?p.cap+' charge':t==='splitter'?p.outs+' outputs':'';
+    h+=`<button role="menuitem" data-a="pick" data-i="${i}"${cur.size===1&&cur.has(p.name)?' class="cur"':''}><span>${esc(p.name)}</span>${sub?`<kbd>${sub}</kbd>`:cur.size===1&&cur.has(p.name)?'<kbd>current</kbd>':''}</button>`});
+  menu.innerHTML=h+'</div>';
+  const r=menu.getBoundingClientRect();menu.style.left=Math.min(menuPos[0],innerWidth-r.width-8)+'px';menu.style.top=Math.max(8,Math.min(menuPos[1],innerHeight-r.height-8))+'px';
+}
+function swapTo(ids,i){
+  const t=node(ids[0]).type,p=P[t][i];if(!p)return;snap();let cut=0;
+  ids.map(node).forEach(n=>{const keep={id:n.id,type:n.type,x:n.x,y:n.y};if(n.type==='battery')keep.start=n.start??100;
+    Object.keys(n).forEach(k=>delete n[k]);Object.assign(n,p,keep);delete n.g;
+    const m=maxOut(n),outs=S.wires.filter(w=>w[0]===n.id);if(outs.length>m){const drop=new Set(outs.slice(m));cut+=drop.size;S.wires=S.wires.filter(w=>!drop.has(w))}});
+  render();setSel(ids);toast(`Changed ${ids.length>1?ids.length+' parts':'to '+p.name}${cut?` — unplugged ${cut} cable${cut>1?'s':''} that no longer fit`:''}`);
+}
+menu.addEventListener('input',e=>{if(e.target.id==='swq'){const pos=e.target.selectionStart;swapMenu();const f=menu.querySelector('#swq');f.focus();f.setSelectionRange(pos,pos)}});
+menu.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.a==='swap'){menuPos=[parseFloat(menu.style.left),parseFloat(menu.style.top)];swapMenu();(menu.querySelector('#swq')||menu.querySelector('.cur')||menu.querySelector('[data-a=pick]')).focus();return}
+  if(b.dataset.a==='back'){const r=menu.getBoundingClientRect();openMenu(menuIds[0],r.left,r.top);return}
+  closeMenu();if(b.dataset.a==='pick')return swapTo(menuIds,+b.dataset.i);runAct(b.dataset.a,menuIds)});
+menu.addEventListener('keydown',e=>{if(e.target.id==='swq'&&e.key!=='ArrowDown'&&e.key!=='Escape')return;const bs=[...menu.querySelectorAll('button:not([disabled])')],i=bs.indexOf(document.activeElement);
   if(e.key==='ArrowDown'){e.preventDefault();bs[(i+1)%bs.length].focus()}if(e.key==='ArrowUp'){e.preventDefault();bs[(i-1+bs.length)%bs.length].focus()}if(e.key==='Escape')closeMenu()});
 stage.addEventListener('contextmenu',e=>{const c=e.target.closest('.node');if(!c)return;e.preventDefault();drag=null;openMenu(c.dataset.id,e.clientX,e.clientY)});
 document.addEventListener('pointerdown',e=>{if(menu.classList.contains('on')&&!e.target.closest('#menu'))closeMenu()},true);
